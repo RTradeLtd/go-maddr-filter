@@ -18,6 +18,7 @@ const (
 
 type filterEntry struct {
 	f      net.IPNet
+	peerID string
 	action Action
 }
 
@@ -52,6 +53,16 @@ func (fs *Filters) find(ipnet net.IPNet) (int, *filterEntry) {
 	return -1, nil
 }
 
+// findID is used to find a filter by peer id
+func (fs *Filters) findID(id string) (int, *filterEntry) {
+	for idx, ft := range fs.filters {
+		if ft.peerID == id {
+			return idx, ft
+		}
+	}
+	return -1, nil
+}
+
 // AddDialFilter adds a deny rule to this Filters set. Hosts
 // matching the given net.IPNet filter will be denied, unless
 // another rule is added which states that they should be accepted.
@@ -73,11 +84,23 @@ func (fs *Filters) AddFilter(ipnet net.IPNet, action Action) {
 	if _, f := fs.find(ipnet); f != nil {
 		f.action = action
 	} else {
-		fs.filters = append(fs.filters, &filterEntry{ipnet, action})
+		fs.filters = append(fs.filters, &filterEntry{f: ipnet, action: action})
 	}
 }
 
-// RemoveLiteral removes the first filter associated with the supplied IPNet,
+// AddPeerIDFilter adds a rule to the Filters set, enforcing the desired action
+// for the provided peer ID
+func (fs *Filters) AddPeerIDFilter(peerID string, action Action) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	if _, f := fs.findID(peerID); f != nil {
+		f.action = action
+	} else {
+		fs.filters = append(fs.filters, &filterEntry{peerID: peerID, action: action})
+	}
+}
+
+// Remove removes the first filter associated with the supplied IPNet,
 // returning whether something was removed or not. It makes no distinction
 // between whether the rule is an accept or a deny.
 //
@@ -115,7 +138,6 @@ func (fs *Filters) AddrBlocked(a ma.Multiaddr) (deny bool) {
 		netip net.IP
 		found bool
 	)
-
 	ma.ForEach(a, func(c ma.Component) bool {
 		switch c.Protocol().Code {
 		case ma.P_IP6ZONE:
@@ -143,6 +165,25 @@ func (fs *Filters) AddrBlocked(a ma.Multiaddr) (deny bool) {
 		}
 	}
 
+	return action == ActionDeny
+}
+
+// IDBlocked is used check if the given peerID is blocked by a particular filter
+// If a parsing error occurs, or no filter matches, the Filters'
+// default is returned.
+//
+// TODO: currently, the last filter to match wins always, but it shouldn't be that way.
+//  Instead, the highest-specific last filter should win; that way more specific filters
+//  override more general ones.
+func (fs *Filters) IDBlocked(peerID string) bool {
+	fs.mu.RLock()
+	action := fs.DefaultAction
+	for _, ft := range fs.filters {
+		if ft.peerID == peerID {
+			action = ft.action
+		}
+	}
+	fs.mu.RUnlock()
 	return action == ActionDeny
 }
 
