@@ -38,6 +38,21 @@ func TestFilter_ID(t *testing.T) {
 			}
 		})
 	}
+	// repeat the same process of adding the filter to trigger the other logic paths
+	for _, tt := range tests {
+		if tt.args.block {
+			f.AddPeerIDFilter(tt.args.id, ActionDeny)
+		} else {
+			f.AddPeerIDFilter(tt.args.id, ActionAccept)
+		}
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if blocked := f.IDBlocked(tt.args.id); blocked != tt.wantBlocked {
+				t.Fatalf("IDBlocked() blocked %v, wantBlocked %v", blocked, tt.wantBlocked)
+			}
+		})
+	}
 }
 
 func TestFilterListing(t *testing.T) {
