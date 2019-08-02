@@ -100,7 +100,7 @@ func (fs *Filters) AddPeerIDFilter(peerID string, action Action) {
 	}
 }
 
-// RemoveLiteral removes the first filter associated with the supplied IPNet,
+// Remove removes the first filter associated with the supplied IPNet,
 // returning whether something was removed or not. It makes no distinction
 // between whether the rule is an accept or a deny.
 //
