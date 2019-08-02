@@ -7,6 +7,39 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 )
 
+func TestFilter_ID(t *testing.T) {
+	f := NewFilters()
+	type args struct {
+		id    string
+		block bool
+	}
+
+	tests := []struct {
+		name        string
+		args        args
+		wantBlocked bool
+	}{
+		{"1", args{"1", true}, true},
+		{"2", args{"2", true}, true},
+		{"3", args{"3", false}, false},
+	}
+
+	for _, tt := range tests {
+		if tt.args.block {
+			f.AddPeerIDFilter(tt.args.id, ActionDeny)
+		} else {
+			f.AddPeerIDFilter(tt.args.id, ActionAccept)
+		}
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if blocked := f.IDBlocked(tt.args.id); blocked != tt.wantBlocked {
+				t.Fatalf("IDBlocked() blocked %v, wantBlocked %v", blocked, tt.wantBlocked)
+			}
+		})
+	}
+}
+
 func TestFilterListing(t *testing.T) {
 	f := NewFilters()
 	expected := map[string]bool{
